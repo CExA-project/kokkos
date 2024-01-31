@@ -34,13 +34,15 @@ void impl_test_local_deepcopy_teampolicy_rank_1(const int N) {
   typename ViewType::HostMirror h_A = Kokkos::create_mirror_view(A);
   typename ViewType::HostMirror h_B = Kokkos::create_mirror_view(B);
 
+  using team_policy = Kokkos::TeamPolicy<ExecSpace>;
+  using member_type = typename Kokkos::TeamPolicy<ExecSpace>::member_type;
   // Initialize A matrix.
   auto subA =
       Kokkos::subview(A, 1, 1, 1, 1, 1, 1, Kokkos::ALL(), Kokkos::ALL());
-  Kokkos::deep_copy(subA, 10.0);
-
-  using team_policy = Kokkos::TeamPolicy<ExecSpace>;
-  using member_type = typename Kokkos::TeamPolicy<ExecSpace>::member_type;
+  using mdrange_policy = Kokkos::MDRangePolicy<Kokkos::Rank<2>>;
+  Kokkos::parallel_for(
+      "initialize A", mdrange_policy({0, 0}, {N, N}),
+      KOKKOS_LAMBDA(int i, int j) { subA(i, j) = i * N + j; });
 
   // Test local_deep_copy_thread
   // Each thread copies a subview of A into B
@@ -145,7 +147,12 @@ void impl_test_local_deepcopy_teampolicy_rank_2(const int N) {
   // Initialize A matrix.
   auto subA = Kokkos::subview(A, 1, 1, 1, 1, 1, Kokkos::ALL(), Kokkos::ALL(),
                               Kokkos::ALL());
-  Kokkos::deep_copy(subA, 10.0);
+  using mdrange_policy = Kokkos::MDRangePolicy<Kokkos::Rank<3>>;
+  Kokkos::parallel_for(
+      "initialize A", mdrange_policy({0, 0, 0}, {N, N, N}),
+      KOKKOS_LAMBDA(int i, int j, int k) {
+        subA(i, j, k) = (i * N + j) * N + k;
+      });
 
   using team_policy = Kokkos::TeamPolicy<ExecSpace>;
   using member_type = typename Kokkos::TeamPolicy<ExecSpace>::member_type;
@@ -256,7 +263,12 @@ void impl_test_local_deepcopy_teampolicy_rank_3(const int N) {
   // Initialize A matrix.
   auto subA = Kokkos::subview(A, 1, 1, 1, 1, Kokkos::ALL(), Kokkos::ALL(),
                               Kokkos::ALL(), Kokkos::ALL());
-  Kokkos::deep_copy(subA, 10.0);
+  using mdrange_policy = Kokkos::MDRangePolicy<Kokkos::Rank<4>>;
+  Kokkos::parallel_for(
+      "initialize A", mdrange_policy({0, 0, 0, 0}, {N, N, N, N}),
+      KOKKOS_LAMBDA(int i, int j, int k, int l) {
+        subA(i, j, k, l) = ((i * N + j) * N + k) * N + l;
+      });
 
   using team_policy = Kokkos::TeamPolicy<ExecSpace>;
   using member_type = typename Kokkos::TeamPolicy<ExecSpace>::member_type;
@@ -369,7 +381,12 @@ void impl_test_local_deepcopy_teampolicy_rank_4(const int N) {
   // Initialize A matrix.
   auto subA = Kokkos::subview(A, 1, 1, 1, Kokkos::ALL(), Kokkos::ALL(),
                               Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL());
-  Kokkos::deep_copy(subA, 10.0);
+  using mdrange_policy = Kokkos::MDRangePolicy<Kokkos::Rank<5>>;
+  Kokkos::parallel_for(
+      "initialize A", mdrange_policy({0, 0, 0, 0, 0}, {N, N, N, N, N}),
+      KOKKOS_LAMBDA(int i, int j, int k, int l, int m) {
+        subA(i, j, k, l, m) = (((i * N + j) * N + k) * N + l) * N + m;
+      });
 
   using team_policy = Kokkos::TeamPolicy<ExecSpace>;
   using member_type = typename Kokkos::TeamPolicy<ExecSpace>::member_type;
@@ -486,7 +503,13 @@ void impl_test_local_deepcopy_teampolicy_rank_5(const int N) {
   auto subA =
       Kokkos::subview(A, 1, 1, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(),
                       Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL());
-  Kokkos::deep_copy(subA, 10.0);
+  using mdrange_policy = Kokkos::MDRangePolicy<Kokkos::Rank<6>>;
+  Kokkos::parallel_for(
+      "initialize A", mdrange_policy({0, 0, 0, 0, 0, 0}, {N, N, N, N, N, N}),
+      KOKKOS_LAMBDA(int i, int j, int k, int l, int m, int n) {
+        subA(i, j, k, l, m, n) =
+            ((((i * N + j) * N + k) * N + l) * N + m) * N + n;
+      });
 
   using team_policy = Kokkos::TeamPolicy<ExecSpace>;
   using member_type = typename Kokkos::TeamPolicy<ExecSpace>::member_type;
@@ -603,7 +626,13 @@ void impl_test_local_deepcopy_teampolicy_rank_6(const int N) {
   auto subA = Kokkos::subview(A, 1, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(),
                               Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(),
                               Kokkos::ALL());
-  Kokkos::deep_copy(subA, 10.0);
+  // No MDRangePolicy for Rank 7
+  Kokkos::parallel_for(
+      "initialize A", A.span(), KOKKOS_LAMBDA(int i) { A.data()[i] = i; });
+  // Reset values that will not be copied
+  Kokkos::parallel_for(
+      "reset unused values", N,
+      KOKKOS_LAMBDA(int i) { A(i, 0, 0, 0, 0, 0, 0, 0) = 0.0; });
 
   using team_policy = Kokkos::TeamPolicy<ExecSpace>;
   using member_type = typename Kokkos::TeamPolicy<ExecSpace>::member_type;
@@ -646,6 +675,7 @@ void impl_test_local_deepcopy_teampolicy_rank_6(const int N) {
   bool test = true;
   for (size_t i = 0; i < A.span(); i++) {
     if (h_A.data()[i] != h_B.data()[i]) {
+      ASSERT_EQ(h_A.data()[i], h_B.data()[i]);
       test = false;
       break;
     }
@@ -717,7 +747,9 @@ void impl_test_local_deepcopy_teampolicy_rank_7(const int N) {
   typename ViewType::HostMirror h_B = Kokkos::create_mirror_view(B);
 
   // Initialize A matrix.
-  Kokkos::deep_copy(A, 10.0);
+  // No MDRangePolicy for Rank 8
+  Kokkos::parallel_for(
+      "initialize A", A.span(), KOKKOS_LAMBDA(int i) { A.data()[i] = i; });
 
   using team_policy = Kokkos::TeamPolicy<ExecSpace>;
   using member_type = typename Kokkos::TeamPolicy<ExecSpace>::member_type;
