@@ -101,8 +101,44 @@ void impl_test_local_deepcopy_teampolicy_rank_2(const int N) {
                               Kokkos::ALL());
   Kokkos::deep_copy(subA, 10.0);
 
-  using team_policy = Kokkos::TeamPolicy<ExecSpace>;
-  using member_type = typename Kokkos::TeamPolicy<ExecSpace>::member_type;
+  using team_policy   = Kokkos::TeamPolicy<ExecSpace>;
+  using member_type   = typename Kokkos::TeamPolicy<ExecSpace>::member_type;
+  using scratch_space = typename ExecSpace::scratch_memory_space;
+
+  // Test local_deep_copy_thread
+  // For each thread, we copy a subview of A to its scratch space, and then
+  // compute the sum of the elements of the subview.
+  Kokkos::parallel_for(
+      team_policy(N, Kokkos::AUTO),
+      KOKKOS_LAMBDA(const member_type& teamMember) {
+        int lid = teamMember.league_rank();  // returns a number between 0 and N
+        typedef Kokkos::View<double**, scratch_space,
+                             Kokkos::MemoryTraits<Kokkos::Unmanaged>>
+            shared_2d;
+        int someSize = N / (teamMember.league_size() * teamMember.team_size());
+        Kokkos::parallel_for(
+            Kokkos::TeamThreadRange(teamMember, someSize),
+            [=](const int indexWithinBatch) {
+              const int idx =
+                  teamMember.team_size() * teamMember.league_rank() +
+                  indexWithinBatch;
+              const auto my_subview = Kokkos::subview(
+                  subA, lid, std::pair(idx * someSize, (idx + 1) * someSize),
+                  Kokkos::ALL);
+              shared_2d scratch(teamMember.thread_scratch(1), someSize, N);
+              Kokkos::Experimental::local_deep_copy_thread(teamMember, scratch,
+                                                           my_subview);
+              // No wait for local_deep_copy_thread
+
+              // Compute sum of elements of scratch using TheadVectorMDRange
+              double thread_sum = 0.0;
+              Kokkos::parallel_reduce(
+                  Kokkos::ThreadVectorMDRange(teamMember, someSize, N),
+                  [=](int i, int j, double& lsum) { lsum += scratch(i, j); },
+                  thread_sum);
+              ASSERT_EQ(thread_sum, 10.0 * N * someSize);
+            });
+      });
 
   // Deep Copy
   Kokkos::parallel_for(
