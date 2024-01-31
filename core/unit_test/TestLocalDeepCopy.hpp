@@ -39,42 +39,54 @@ void impl_test_local_deepcopy_teampolicy_rank_1(const int N) {
       Kokkos::subview(A, 1, 1, 1, 1, 1, 1, Kokkos::ALL(), Kokkos::ALL());
   Kokkos::deep_copy(subA, 10.0);
 
-  using team_policy   = Kokkos::TeamPolicy<ExecSpace>;
-  using member_type   = typename Kokkos::TeamPolicy<ExecSpace>::member_type;
-  using scratch_space = typename ExecSpace::scratch_memory_space;
+  using team_policy = Kokkos::TeamPolicy<ExecSpace>;
+  using member_type = typename Kokkos::TeamPolicy<ExecSpace>::member_type;
 
   // Test local_deep_copy_thread
-  // For each thread, we copy a subview of A to its scratch space, and then
-  // compute the sum of the elements of the subview.
+  // Each thread copies a subview of A into B
   Kokkos::parallel_for(
       team_policy(N, Kokkos::AUTO),
       KOKKOS_LAMBDA(const member_type& teamMember) {
         int lid = teamMember.league_rank();  // returns a number between 0 and N
-        // 1d array should fit in the scratch space
-        using shared_1d = Kokkos::View<double*, scratch_space,
-                                       Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
-        int someSize = N / (teamMember.league_size() * teamMember.team_size());
+        auto thread_number = teamMember.league_size();
+        auto unitsOfWork   = N / thread_number;
+        if (N % thread_number) {
+          unitsOfWork += 1;
+        }
+        auto numberOfBatches = N / unitsOfWork;
         Kokkos::parallel_for(
-            Kokkos::TeamThreadRange(teamMember, someSize),
+            Kokkos::TeamThreadRange(teamMember, numberOfBatches),
             [=](const int indexWithinBatch) {
-              const int idx =
-                  teamMember.team_size() * teamMember.league_rank() +
-                  indexWithinBatch;
-              const auto my_subview = Kokkos::subview(
-                  subA, lid, std::pair(idx * someSize, (idx + 1) * someSize));
-              shared_1d scratch(teamMember.thread_scratch(1), someSize);
-              Kokkos::Experimental::local_deep_copy_thread(teamMember, scratch,
-                                                           my_subview);
-              // No wait for local_deep_copy_thread
+              const int idx = indexWithinBatch;
 
-              // Compute sum of elements of scratch using TheadVectorMDRange
-              double thread_sum = 0.0;
-              Kokkos::parallel_reduce(
-                  Kokkos::ThreadVectorRange(teamMember, someSize),
-                  [=](int i, double& lsum) { lsum += scratch(i); }, thread_sum);
-              ASSERT_EQ(thread_sum, 10.0 * someSize);
+              auto start  = idx * unitsOfWork;
+              auto stop   = (idx + 1) * unitsOfWork;
+              stop        = Kokkos::clamp(stop, 0, N);
+              auto subSrc = Kokkos::subview(A, 1, 1, 1, 1, 1, 1, lid,
+                                            std::pair(start, stop));
+              auto subDst = Kokkos::subview(B, 1, 1, 1, 1, 1, 1, lid,
+                                            std::pair(start, stop));
+              Kokkos::Experimental::local_deep_copy_thread(teamMember, subDst,
+                                                           subSrc);
+              // No wait for local_deep_copy_thread
             });
       });
+
+  Kokkos::deep_copy(h_A, A);
+  Kokkos::deep_copy(h_B, B);
+
+  bool test = true;
+  for (size_t i = 0; i < A.span(); i++) {
+    if (h_A.data()[i] != h_B.data()[i]) {
+      test = false;
+      break;
+    }
+  }
+
+  ASSERT_EQ(test, true);
+
+  // Fill
+  Kokkos::deep_copy(B, 0.0);
 
   // Deep Copy
   Kokkos::parallel_for(
@@ -89,7 +101,7 @@ void impl_test_local_deepcopy_teampolicy_rank_1(const int N) {
   Kokkos::deep_copy(h_A, A);
   Kokkos::deep_copy(h_B, B);
 
-  bool test = true;
+  test = true;
   for (size_t i = 0; i < A.span(); i++) {
     if (h_A.data()[i] != h_B.data()[i]) {
       test = false;
@@ -135,44 +147,54 @@ void impl_test_local_deepcopy_teampolicy_rank_2(const int N) {
                               Kokkos::ALL());
   Kokkos::deep_copy(subA, 10.0);
 
-  using team_policy   = Kokkos::TeamPolicy<ExecSpace>;
-  using member_type   = typename Kokkos::TeamPolicy<ExecSpace>::member_type;
-  using scratch_space = typename ExecSpace::scratch_memory_space;
+  using team_policy = Kokkos::TeamPolicy<ExecSpace>;
+  using member_type = typename Kokkos::TeamPolicy<ExecSpace>::member_type;
 
   // Test local_deep_copy_thread
-  // For each thread, we copy a subview of A to its scratch space, and then
-  // compute the sum of the elements of the subview.
+  // Each thread copies a subview of A into B
   Kokkos::parallel_for(
       team_policy(N, Kokkos::AUTO),
       KOKKOS_LAMBDA(const member_type& teamMember) {
         int lid = teamMember.league_rank();  // returns a number between 0 and N
-        // 2D array should fit in the scratch space
-        using shared_2d = Kokkos::View<double**, scratch_space,
-                                       Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
-        int someSize = N / (teamMember.league_size() * teamMember.team_size());
+        auto thread_number = teamMember.league_size();
+        auto unitsOfWork   = N / thread_number;
+        if (N % thread_number) {
+          unitsOfWork += 1;
+        }
+        auto numberOfBatches = N / unitsOfWork;
         Kokkos::parallel_for(
-            Kokkos::TeamThreadRange(teamMember, someSize),
+            Kokkos::TeamThreadRange(teamMember, numberOfBatches),
             [=](const int indexWithinBatch) {
-              const int idx =
-                  teamMember.team_size() * teamMember.league_rank() +
-                  indexWithinBatch;
-              const auto my_subview = Kokkos::subview(
-                  subA, lid, std::pair(idx * someSize, (idx + 1) * someSize),
-                  Kokkos::ALL);
-              shared_2d scratch(teamMember.thread_scratch(1), someSize, N);
-              Kokkos::Experimental::local_deep_copy_thread(teamMember, scratch,
-                                                           my_subview);
-              // No wait for local_deep_copy_thread
+              const int idx = indexWithinBatch;
 
-              // Compute sum of elements of scratch using TheadVectorMDRange
-              double thread_sum = 0.0;
-              Kokkos::parallel_reduce(
-                  Kokkos::ThreadVectorMDRange(teamMember, someSize, N),
-                  [=](int i, int j, double& lsum) { lsum += scratch(i, j); },
-                  thread_sum);
-              ASSERT_EQ(thread_sum, 10.0 * N * someSize);
+              auto start  = idx * unitsOfWork;
+              auto stop   = (idx + 1) * unitsOfWork;
+              stop        = Kokkos::clamp(stop, 0, N);
+              auto subSrc = Kokkos::subview(
+                  A, 1, 1, 1, 1, 1, lid, std::pair(start, stop), Kokkos::ALL());
+              auto subDst = Kokkos::subview(
+                  B, 1, 1, 1, 1, 1, lid, std::pair(start, stop), Kokkos::ALL());
+              Kokkos::Experimental::local_deep_copy_thread(teamMember, subDst,
+                                                           subSrc);
+              // No wait for local_deep_copy_thread
             });
       });
+
+  Kokkos::deep_copy(h_A, A);
+  Kokkos::deep_copy(h_B, B);
+
+  bool test = true;
+  for (size_t i = 0; i < A.span(); i++) {
+    if (h_A.data()[i] != h_B.data()[i]) {
+      test = false;
+      break;
+    }
+  }
+
+  ASSERT_EQ(test, true);
+
+  // Fill
+  Kokkos::deep_copy(B, 0.0);
 
   // Deep Copy
   Kokkos::parallel_for(
@@ -189,7 +211,7 @@ void impl_test_local_deepcopy_teampolicy_rank_2(const int N) {
   Kokkos::deep_copy(h_A, A);
   Kokkos::deep_copy(h_B, B);
 
-  bool test = true;
+  test = true;
   for (size_t i = 0; i < A.span(); i++) {
     if (h_A.data()[i] != h_B.data()[i]) {
       test = false;
@@ -240,39 +262,52 @@ void impl_test_local_deepcopy_teampolicy_rank_3(const int N) {
   using member_type = typename Kokkos::TeamPolicy<ExecSpace>::member_type;
 
   // Test local_deep_copy_thread
-  // For each thread, we copy a subview of A to its scratch space, and then
-  // compute the sum of the elements of the subview.
+  // Each thread copies a subview of A into B
   Kokkos::parallel_for(
       team_policy(N, Kokkos::AUTO),
       KOKKOS_LAMBDA(const member_type& teamMember) {
         int lid = teamMember.league_rank();  // returns a number between 0 and N
-        using shared_3d = Kokkos::View<double***>;
-        int someSize = N / (teamMember.league_size() * teamMember.team_size());
+        auto thread_number = teamMember.league_size();
+        auto unitsOfWork   = N / thread_number;
+        if (N % thread_number) {
+          unitsOfWork += 1;
+        }
+        auto numberOfBatches = N / unitsOfWork;
         Kokkos::parallel_for(
-            Kokkos::TeamThreadRange(teamMember, someSize),
+            Kokkos::TeamThreadRange(teamMember, numberOfBatches),
             [=](const int indexWithinBatch) {
-              const int idx =
-                  teamMember.team_size() * teamMember.league_rank() +
-                  indexWithinBatch;
-              const auto my_subview = Kokkos::subview(
-                  subA, lid, std::pair(idx * someSize, (idx + 1) * someSize),
-                  Kokkos::ALL, Kokkos::ALL);
-              shared_3d scratch("scratch", someSize, N, N);
-              Kokkos::Experimental::local_deep_copy_thread(teamMember, scratch,
-                                                           my_subview);
-              // No wait for local_deep_copy_thread
+              const int idx = indexWithinBatch;
 
-              // Compute sum of elements of scratch using TheadVectorMDRange
-              double thread_sum = 0.0;
-              Kokkos::parallel_reduce(
-                  Kokkos::ThreadVectorMDRange(teamMember, someSize, N, N),
-                  [=](int i, int j, int k, double& lsum) {
-                    lsum += scratch(i, j, k);
-                  },
-                  thread_sum);
-              ASSERT_EQ(thread_sum, 10.0 * N * N * someSize);
+              auto start = idx * unitsOfWork;
+              auto stop  = (idx + 1) * unitsOfWork;
+              stop       = Kokkos::clamp(stop, 0, N);
+              auto subSrc =
+                  Kokkos::subview(A, 1, 1, 1, 1, lid, std::pair(start, stop),
+                                  Kokkos::ALL(), Kokkos::ALL());
+              auto subDst =
+                  Kokkos::subview(B, 1, 1, 1, 1, lid, std::pair(start, stop),
+                                  Kokkos::ALL(), Kokkos::ALL());
+              Kokkos::Experimental::local_deep_copy_thread(teamMember, subDst,
+                                                           subSrc);
+              // No wait for local_deep_copy_thread
             });
       });
+
+  Kokkos::deep_copy(h_A, A);
+  Kokkos::deep_copy(h_B, B);
+
+  bool test = true;
+  for (size_t i = 0; i < A.span(); i++) {
+    if (h_A.data()[i] != h_B.data()[i]) {
+      test = false;
+      break;
+    }
+  }
+
+  ASSERT_EQ(test, true);
+
+  // Fill
+  Kokkos::deep_copy(B, 0.0);
 
   // Deep Copy
   Kokkos::parallel_for(
@@ -289,7 +324,7 @@ void impl_test_local_deepcopy_teampolicy_rank_3(const int N) {
   Kokkos::deep_copy(h_A, A);
   Kokkos::deep_copy(h_B, B);
 
-  bool test = true;
+  test = true;
   for (size_t i = 0; i < A.span(); i++) {
     if (h_A.data()[i] != h_B.data()[i]) {
       test = false;
@@ -340,39 +375,52 @@ void impl_test_local_deepcopy_teampolicy_rank_4(const int N) {
   using member_type = typename Kokkos::TeamPolicy<ExecSpace>::member_type;
 
   // Test local_deep_copy_thread
-  // For each thread, we copy a subview of A to its scratch space, and then
-  // compute the sum of the elements of the subview.
+  // Each thread copies a subview of A into B
   Kokkos::parallel_for(
       team_policy(N, Kokkos::AUTO),
       KOKKOS_LAMBDA(const member_type& teamMember) {
         int lid = teamMember.league_rank();  // returns a number between 0 and N
-        using shared_4d = Kokkos::View<double****>;
-        int someSize = N / (teamMember.league_size() * teamMember.team_size());
+        auto thread_number = teamMember.league_size();
+        auto unitsOfWork   = N / thread_number;
+        if (N % thread_number) {
+          unitsOfWork += 1;
+        }
+        auto numberOfBatches = N / unitsOfWork;
         Kokkos::parallel_for(
-            Kokkos::TeamThreadRange(teamMember, someSize),
+            Kokkos::TeamThreadRange(teamMember, numberOfBatches),
             [=](const int indexWithinBatch) {
-              const int idx =
-                  teamMember.team_size() * teamMember.league_rank() +
-                  indexWithinBatch;
-              const auto my_subview = Kokkos::subview(
-                  subA, lid, std::pair(idx * someSize, (idx + 1) * someSize),
-                  Kokkos::ALL, Kokkos::ALL, Kokkos::ALL);
-              shared_4d scratch("scratch", someSize, N, N, N);
-              Kokkos::Experimental::local_deep_copy_thread(teamMember, scratch,
-                                                           my_subview);
-              // No wait for local_deep_copy_thread
+              const int idx = indexWithinBatch;
 
-              // Compute sum of elements of scratch using TheadVectorMDRange
-              double thread_sum = 0.0;
-              Kokkos::parallel_reduce(
-                  Kokkos::ThreadVectorMDRange(teamMember, someSize, N, N, N),
-                  [=](int i, int j, int k, int l, double& lsum) {
-                    lsum += scratch(i, j, k, l);
-                  },
-                  thread_sum);
-              ASSERT_EQ(thread_sum, 10.0 * N * N * N * someSize);
+              auto start = idx * unitsOfWork;
+              auto stop  = (idx + 1) * unitsOfWork;
+              stop       = Kokkos::clamp(stop, 0, N);
+              auto subSrc =
+                  Kokkos::subview(A, 1, 1, 1, lid, std::pair(start, stop),
+                                  Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL());
+              auto subDst =
+                  Kokkos::subview(B, 1, 1, 1, lid, std::pair(start, stop),
+                                  Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL());
+              Kokkos::Experimental::local_deep_copy_thread(teamMember, subDst,
+                                                           subSrc);
+              // No wait for local_deep_copy_thread
             });
       });
+
+  Kokkos::deep_copy(h_A, A);
+  Kokkos::deep_copy(h_B, B);
+
+  bool test = true;
+  for (size_t i = 0; i < A.span(); i++) {
+    if (h_A.data()[i] != h_B.data()[i]) {
+      test = false;
+      break;
+    }
+  }
+
+  ASSERT_EQ(test, true);
+
+  // Fill
+  Kokkos::deep_copy(B, 0.0);
 
   // Deep Copy
   Kokkos::parallel_for(
@@ -391,7 +439,7 @@ void impl_test_local_deepcopy_teampolicy_rank_4(const int N) {
   Kokkos::deep_copy(h_A, A);
   Kokkos::deep_copy(h_B, B);
 
-  bool test = true;
+  test = true;
   for (size_t i = 0; i < A.span(); i++) {
     if (h_A.data()[i] != h_B.data()[i]) {
       test = false;
@@ -444,39 +492,52 @@ void impl_test_local_deepcopy_teampolicy_rank_5(const int N) {
   using member_type = typename Kokkos::TeamPolicy<ExecSpace>::member_type;
 
   // Test local_deep_copy_thread
-  // For each thread, we copy a subview of A to its scratch space, and then
-  // compute the sum of the elements of the subview.
+  // Each thread copies a subview of A into B
   Kokkos::parallel_for(
       team_policy(N, Kokkos::AUTO),
       KOKKOS_LAMBDA(const member_type& teamMember) {
         int lid = teamMember.league_rank();  // returns a number between 0 and N
-        using shared_5d = Kokkos::View<double*****>;
-        int someSize = N / (teamMember.league_size() * teamMember.team_size());
+        auto thread_number = teamMember.league_size();
+        auto unitsOfWork   = N / thread_number;
+        if (N % thread_number) {
+          unitsOfWork += 1;
+        }
+        auto numberOfBatches = N / unitsOfWork;
         Kokkos::parallel_for(
-            Kokkos::TeamThreadRange(teamMember, someSize),
+            Kokkos::TeamThreadRange(teamMember, numberOfBatches),
             [=](const int indexWithinBatch) {
-              const int idx =
-                  teamMember.team_size() * teamMember.league_rank() +
-                  indexWithinBatch;
-              const auto my_subview = Kokkos::subview(
-                  subA, lid, std::pair(idx * someSize, (idx + 1) * someSize),
-                  Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL);
-              shared_5d scratch("scratch", someSize, N, N, N, N);
-              Kokkos::Experimental::local_deep_copy_thread(teamMember, scratch,
-                                                           my_subview);
-              // No wait for local_deep_copy_thread
+              const int idx = indexWithinBatch;
 
-              // Compute sum of elements of scratch using TheadVectorMDRange
-              double thread_sum = 0.0;
-              Kokkos::parallel_reduce(
-                  Kokkos::ThreadVectorMDRange(teamMember, someSize, N, N, N, N),
-                  [=](int i, int j, int k, int l, int m, double& lsum) {
-                    lsum += scratch(i, j, k, l, m);
-                  },
-                  thread_sum);
-              ASSERT_EQ(thread_sum, 10.0 * N * N * N * N * someSize);
+              auto start  = idx * unitsOfWork;
+              auto stop   = (idx + 1) * unitsOfWork;
+              stop        = Kokkos::clamp(stop, 0, N);
+              auto subSrc = Kokkos::subview(
+                  A, 1, 1, lid, std::pair(start, stop), Kokkos::ALL(),
+                  Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL());
+              auto subDst = Kokkos::subview(
+                  B, 1, 1, lid, std::pair(start, stop), Kokkos::ALL(),
+                  Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL());
+              Kokkos::Experimental::local_deep_copy_thread(teamMember, subDst,
+                                                           subSrc);
+              // No wait for local_deep_copy_thread
             });
       });
+
+  Kokkos::deep_copy(h_A, A);
+  Kokkos::deep_copy(h_B, B);
+
+  bool test = true;
+  for (size_t i = 0; i < A.span(); i++) {
+    if (h_A.data()[i] != h_B.data()[i]) {
+      test = false;
+      break;
+    }
+  }
+
+  ASSERT_EQ(test, true);
+
+  // Fill
+  Kokkos::deep_copy(B, 0.0);
 
   // Deep Copy
   Kokkos::parallel_for(
@@ -495,7 +556,7 @@ void impl_test_local_deepcopy_teampolicy_rank_5(const int N) {
   Kokkos::deep_copy(h_A, A);
   Kokkos::deep_copy(h_B, B);
 
-  bool test = true;
+  test = true;
   for (size_t i = 0; i < A.span(); i++) {
     if (h_A.data()[i] != h_B.data()[i]) {
       test = false;
@@ -548,41 +609,52 @@ void impl_test_local_deepcopy_teampolicy_rank_6(const int N) {
   using member_type = typename Kokkos::TeamPolicy<ExecSpace>::member_type;
 
   // Test local_deep_copy_thread
-  // For each thread, we copy a subview of A to its scratch space, and then
-  // compute the sum of the elements of the subview.
+  // Each thread copies a subview of A into B
   Kokkos::parallel_for(
       team_policy(N, Kokkos::AUTO),
       KOKKOS_LAMBDA(const member_type& teamMember) {
         int lid = teamMember.league_rank();  // returns a number between 0 and N
-        using shared_6d = Kokkos::View<double******>;
-        int someSize = N / (teamMember.league_size() * teamMember.team_size());
+        auto thread_number = teamMember.league_size();
+        auto unitsOfWork   = N / thread_number;
+        if (N % thread_number) {
+          unitsOfWork += 1;
+        }
+        auto numberOfBatches = N / unitsOfWork;
         Kokkos::parallel_for(
-            Kokkos::TeamThreadRange(teamMember, someSize),
+            Kokkos::TeamThreadRange(teamMember, numberOfBatches),
             [=](const int indexWithinBatch) {
-              const int idx =
-                  teamMember.team_size() * teamMember.league_rank() +
-                  indexWithinBatch;
-              const auto my_subview = Kokkos::subview(
-                  subA, lid, std::pair(idx * someSize, (idx + 1) * someSize),
-                  Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(),
-                  Kokkos::ALL);
-              shared_6d scratch("scratch", someSize, N, N, N, N, N);
-              Kokkos::Experimental::local_deep_copy_thread(teamMember, scratch,
-                                                           my_subview);
-              // No wait for local_deep_copy_thread
+              const int idx = indexWithinBatch;
 
-              // Compute sum of elements of scratch using TheadVectorMDRange
-              double thread_sum = 0.0;
-              Kokkos::parallel_reduce(
-                  Kokkos::ThreadVectorMDRange(teamMember, someSize, N, N, N, N,
-                                              N),
-                  [=](int i, int j, int k, int l, int m, int n, double& lsum) {
-                    lsum += scratch(i, j, k, l, m, n);
-                  },
-                  thread_sum);
-              ASSERT_EQ(thread_sum, 10.0 * N * N * N * N * N * someSize);
+              auto start  = idx * unitsOfWork;
+              auto stop   = (idx + 1) * unitsOfWork;
+              stop        = Kokkos::clamp(stop, 0, N);
+              auto subSrc = Kokkos::subview(
+                  A, 1, lid, std::pair(start, stop), Kokkos::ALL(),
+                  Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL());
+              auto subDst = Kokkos::subview(
+                  B, 1, lid, std::pair(start, stop), Kokkos::ALL(),
+                  Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL());
+              Kokkos::Experimental::local_deep_copy_thread(teamMember, subDst,
+                                                           subSrc);
+              // No wait for local_deep_copy_thread
             });
       });
+
+  Kokkos::deep_copy(h_A, A);
+  Kokkos::deep_copy(h_B, B);
+
+  bool test = true;
+  for (size_t i = 0; i < A.span(); i++) {
+    if (h_A.data()[i] != h_B.data()[i]) {
+      test = false;
+      break;
+    }
+  }
+
+  ASSERT_EQ(test, true);
+
+  // Fill
+  Kokkos::deep_copy(B, 0.0);
 
   // Deep Copy
   Kokkos::parallel_for(
@@ -601,7 +673,7 @@ void impl_test_local_deepcopy_teampolicy_rank_6(const int N) {
   Kokkos::deep_copy(h_A, A);
   Kokkos::deep_copy(h_B, B);
 
-  bool test = true;
+  test = true;
   for (size_t i = 0; i < A.span(); i++) {
     if (h_A.data()[i] != h_B.data()[i]) {
       test = false;
@@ -651,40 +723,52 @@ void impl_test_local_deepcopy_teampolicy_rank_7(const int N) {
   using member_type = typename Kokkos::TeamPolicy<ExecSpace>::member_type;
 
   // Test local_deep_copy_thread
-  // For each thread, we copy a subview of A to its scratch space, and then
-  // compute the sum of the elements of the subview.
+  // Each thread copies a subview of A into B
   Kokkos::parallel_for(
       team_policy(N, Kokkos::AUTO),
       KOKKOS_LAMBDA(const member_type& teamMember) {
         int lid = teamMember.league_rank();  // returns a number between 0 and N
-        using shared_7d = Kokkos::View<double*******>;
-        int someSize = N / (teamMember.league_size() * teamMember.team_size());
+        auto thread_number = teamMember.league_size();
+        auto unitsOfWork   = N / thread_number;
+        if (N % thread_number) {
+          unitsOfWork += 1;
+        }
+        auto numberOfBatches = N / unitsOfWork;
         Kokkos::parallel_for(
-            Kokkos::TeamThreadRange(teamMember, someSize),
+            Kokkos::TeamThreadRange(teamMember, numberOfBatches),
             [=](const int indexWithinBatch) {
-              const int idx =
-                  teamMember.team_size() * teamMember.league_rank() +
-                  indexWithinBatch;
-              const auto my_subview = Kokkos::subview(
-                  A, lid, std::pair(idx * someSize, (idx + 1) * someSize),
-                  Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(),
-                  Kokkos::ALL, Kokkos::ALL);
-              shared_7d scratch("scratch", someSize, N, N, N, N, N, N);
-              Kokkos::Experimental::local_deep_copy_thread(teamMember, scratch,
-                                                           my_subview);
-              // No wait for local_deep_copy_thread
+              const int idx = indexWithinBatch;
 
-              // Compute sum of elements of scratch using TheadVectorMDRange
-              double thread_sum = 0.0;
-              Kokkos::parallel_reduce(
-                  Kokkos::ThreadVectorMDRange(teamMember, someSize, N, N, N, N,
-                                              N, N),
-                  [=](int i, int j, int k, int l, int m, int n, int o,
-                      double& lsum) { lsum += scratch(i, j, k, l, m, n, o); },
-                  thread_sum);
-              ASSERT_EQ(thread_sum, 10.0 * N * N * N * N * N * N * someSize);
+              auto start  = idx * unitsOfWork;
+              auto stop   = (idx + 1) * unitsOfWork;
+              stop        = Kokkos::clamp(stop, 0, N);
+              auto subSrc = Kokkos::subview(
+                  A, lid, std::pair(start, stop), Kokkos::ALL(), Kokkos::ALL(),
+                  Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL());
+              auto subDst = Kokkos::subview(
+                  B, lid, std::pair(start, stop), Kokkos::ALL(), Kokkos::ALL(),
+                  Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL());
+              Kokkos::Experimental::local_deep_copy_thread(teamMember, subDst,
+                                                           subSrc);
+              // No wait for local_deep_copy_thread
             });
       });
+
+  Kokkos::deep_copy(h_A, A);
+  Kokkos::deep_copy(h_B, B);
+
+  bool test = true;
+  for (size_t i = 0; i < A.span(); i++) {
+    if (h_A.data()[i] != h_B.data()[i]) {
+      test = false;
+      break;
+    }
+  }
+
+  ASSERT_EQ(test, true);
+
+  // Fill
+  Kokkos::deep_copy(B, 0.0);
 
   // Deep Copy
   Kokkos::parallel_for(
@@ -703,7 +787,7 @@ void impl_test_local_deepcopy_teampolicy_rank_7(const int N) {
   Kokkos::deep_copy(h_A, A);
   Kokkos::deep_copy(h_B, B);
 
-  bool test = true;
+  test = true;
   for (size_t i = 0; i < A.span(); i++) {
     if (h_A.data()[i] != h_B.data()[i]) {
       test = false;
