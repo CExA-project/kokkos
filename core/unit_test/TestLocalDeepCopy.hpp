@@ -14,13 +14,10 @@
 //
 //@HEADER
 
-#include "../../algorithms/unit_tests/TestSort.hpp"
+#ifndef TESTLOCALDEEPCOPY_HPP
+#define TESTLOCALDEEPCOPY_HPP
 
 #include <gtest/gtest.h>
-
-#include <sstream>
-#include <iostream>
-#include <time.h>
 
 #include <Kokkos_Core.hpp>
 
@@ -33,7 +30,10 @@ bool array_equals(ViewType lfs, ViewType rhs) {
   auto reducer = Kokkos::LAnd<int>(result);
   Kokkos::parallel_reduce(
       "compare arrays", lfs.span(),
-      KOKKOS_LAMBDA(int i, int local_result) {
+      KOKKOS_LAMBDA(int i, int& local_result) {
+        if (lfs.data()[i] != rhs.data()[i]) {
+          local_result = 0;
+        }
         local_result = (lfs.data()[i] == rhs.data()[i]) && local_result;
       },
       reducer);
@@ -48,8 +48,8 @@ void array_init(ViewType& view) {
 }
 
 template <typename TeamPolicy>
-std::tuple<int, int> compute_thread_work_share(const int N,
-                                               TeamPolicy team_policy) {
+KOKKOS_INLINE_FUNCTION std::tuple<int, int> compute_thread_work_share(
+    const int N, TeamPolicy team_policy) {
   auto thread_number = team_policy.league_size();
   auto unitsOfWork   = N / thread_number;
   if (N % thread_number) {
@@ -116,28 +116,28 @@ ViewType create_array(
 }
 
 template <typename ViewType, typename Bounds>
-auto extract_subview(
+KOKKOS_INLINE_FUNCTION auto extract_subview(
     ViewType& src, int lid, Bounds bounds,
     std::enable_if_t<(unsigned(ViewType::rank) == 2)>* = nullptr) {
   return Kokkos::subview(src, lid, bounds);
 }
 
 template <typename ViewType, typename Bounds>
-auto extract_subview(
+KOKKOS_INLINE_FUNCTION auto extract_subview(
     ViewType& src, int lid, Bounds bounds,
     std::enable_if_t<(unsigned(ViewType::rank) == 3)>* = nullptr) {
   return Kokkos::subview(src, lid, bounds, Kokkos::ALL);
 }
 
 template <typename ViewType, typename Bounds>
-auto extract_subview(
+KOKKOS_INLINE_FUNCTION auto extract_subview(
     ViewType& src, int lid, Bounds bounds,
     std::enable_if_t<(unsigned(ViewType::rank) == 4)>* = nullptr) {
   return Kokkos::subview(src, lid, bounds, Kokkos::ALL, Kokkos::ALL);
 }
 
 template <typename ViewType, typename Bounds>
-auto extract_subview(
+KOKKOS_INLINE_FUNCTION auto extract_subview(
     ViewType& src, int lid, Bounds bounds,
     std::enable_if_t<(unsigned(ViewType::rank) == 5)>* = nullptr) {
   return Kokkos::subview(src, lid, bounds, Kokkos::ALL, Kokkos::ALL,
@@ -145,7 +145,7 @@ auto extract_subview(
 }
 
 template <typename ViewType, typename Bounds>
-auto extract_subview(
+KOKKOS_INLINE_FUNCTION auto extract_subview(
     ViewType& src, int lid, Bounds bounds,
     std::enable_if_t<(unsigned(ViewType::rank) == 6)>* = nullptr) {
   return Kokkos::subview(src, lid, bounds, Kokkos::ALL, Kokkos::ALL,
@@ -153,7 +153,7 @@ auto extract_subview(
 }
 
 template <typename ViewType, typename Bounds>
-auto extract_subview(
+KOKKOS_INLINE_FUNCTION auto extract_subview(
     ViewType& src, int lid, Bounds bounds,
     std::enable_if_t<(unsigned(ViewType::rank) == 7)>* = nullptr) {
   return Kokkos::subview(src, lid, bounds, Kokkos::ALL, Kokkos::ALL,
@@ -161,13 +161,14 @@ auto extract_subview(
 }
 
 template <typename ViewType, typename Bounds>
-auto extract_subview(
+KOKKOS_INLINE_FUNCTION auto extract_subview(
     ViewType& src, int lid, Bounds bounds,
     std::enable_if_t<(unsigned(ViewType::rank) == 8)>* = nullptr) {
   return Kokkos::subview(src, lid, bounds, Kokkos::ALL, Kokkos::ALL,
                          Kokkos::ALL, Kokkos::ALL, Kokkos::ALL, Kokkos::ALL);
 }
 
+// Helper class to run local_deep_copy test
 template <typename ViewType, typename ExecSpace>
 class TestLocalDeepCopyRank {
   using team_policy = Kokkos::TeamPolicy<ExecSpace>;
@@ -593,3 +594,5 @@ TEST(TEST_CATEGORY, deep_copy_scratch) {
   }
 }
 }  // namespace Test
+
+#endif  // TESTLOCALDEEPCOPY_HPP
