@@ -45,6 +45,18 @@ void initialize_array(ViewType& view) {
       KOKKOS_LAMBDA(int i) { view.data()[i] = i; });
 }
 
+template <typename TeamPolicy>
+std::tuple<int, int> compute_thread_work_share(const int N,
+                                               TeamPolicy team_policy) {
+  auto thread_number = team_policy.league_size();
+  auto unitsOfWork   = N / thread_number;
+  if (N % thread_number) {
+    unitsOfWork += 1;
+  }
+  auto numberOfBatches = N / unitsOfWork;
+  return {unitsOfWork, numberOfBatches};
+}
+
 template <typename ExecSpace, typename Layout>
 void impl_test_local_deepcopy_teampolicy_rank_1(const int N) {
   using ViewType = Kokkos::View<double**, Layout, ExecSpace>;
@@ -68,12 +80,9 @@ void impl_test_local_deepcopy_teampolicy_rank_1(const int N) {
       team_policy(N, Kokkos::AUTO),
       KOKKOS_LAMBDA(const member_type& teamMember) {
         int lid = teamMember.league_rank();  // returns a number between 0 and N
-        auto thread_number = teamMember.league_size();
-        auto unitsOfWork   = N / thread_number;
-        if (N % thread_number) {
-          unitsOfWork += 1;
-        }
-        auto numberOfBatches = N / unitsOfWork;
+        auto [unitsOfWork, numberOfBatches] =
+            compute_thread_work_share(N, teamMember);
+
         Kokkos::parallel_for(
             Kokkos::TeamThreadRange(teamMember, numberOfBatches),
             [=](const int indexWithinBatch) {
@@ -151,12 +160,8 @@ void impl_test_local_deepcopy_teampolicy_rank_2(const int N) {
       team_policy(N, Kokkos::AUTO),
       KOKKOS_LAMBDA(const member_type& teamMember) {
         int lid = teamMember.league_rank();  // returns a number between 0 and N
-        auto thread_number = teamMember.league_size();
-        auto unitsOfWork   = N / thread_number;
-        if (N % thread_number) {
-          unitsOfWork += 1;
-        }
-        auto numberOfBatches = N / unitsOfWork;
+        auto [unitsOfWork, numberOfBatches] =
+            compute_thread_work_share(N, teamMember);
         Kokkos::parallel_for(
             Kokkos::TeamThreadRange(teamMember, numberOfBatches),
             [=](const int indexWithinBatch) {
@@ -236,12 +241,8 @@ void impl_test_local_deepcopy_teampolicy_rank_3(const int N) {
       team_policy(N, Kokkos::AUTO),
       KOKKOS_LAMBDA(const member_type& teamMember) {
         int lid = teamMember.league_rank();  // returns a number between 0 and N
-        auto thread_number = teamMember.league_size();
-        auto unitsOfWork   = N / thread_number;
-        if (N % thread_number) {
-          unitsOfWork += 1;
-        }
-        auto numberOfBatches = N / unitsOfWork;
+        auto [unitsOfWork, numberOfBatches] =
+            compute_thread_work_share(N, teamMember);
         Kokkos::parallel_for(
             Kokkos::TeamThreadRange(teamMember, numberOfBatches),
             [=](const int indexWithinBatch) {
@@ -324,12 +325,8 @@ void impl_test_local_deepcopy_teampolicy_rank_4(const int N) {
       team_policy(N, Kokkos::AUTO),
       KOKKOS_LAMBDA(const member_type& teamMember) {
         int lid = teamMember.league_rank();  // returns a number between 0 and N
-        auto thread_number = teamMember.league_size();
-        auto unitsOfWork   = N / thread_number;
-        if (N % thread_number) {
-          unitsOfWork += 1;
-        }
-        auto numberOfBatches = N / unitsOfWork;
+        auto [unitsOfWork, numberOfBatches] =
+            compute_thread_work_share(N, teamMember);
         Kokkos::parallel_for(
             Kokkos::TeamThreadRange(teamMember, numberOfBatches),
             [=](const int indexWithinBatch) {
@@ -414,12 +411,8 @@ void impl_test_local_deepcopy_teampolicy_rank_5(const int N) {
       team_policy(N, Kokkos::AUTO),
       KOKKOS_LAMBDA(const member_type& teamMember) {
         int lid = teamMember.league_rank();  // returns a number between 0 and N
-        auto thread_number = teamMember.league_size();
-        auto unitsOfWork   = N / thread_number;
-        if (N % thread_number) {
-          unitsOfWork += 1;
-        }
-        auto numberOfBatches = N / unitsOfWork;
+        auto [unitsOfWork, numberOfBatches] =
+            compute_thread_work_share(N, teamMember);
         Kokkos::parallel_for(
             Kokkos::TeamThreadRange(teamMember, numberOfBatches),
             [=](const int indexWithinBatch) {
@@ -507,12 +500,8 @@ void impl_test_local_deepcopy_teampolicy_rank_6(const int N) {
       team_policy(N, Kokkos::AUTO),
       KOKKOS_LAMBDA(const member_type& teamMember) {
         int lid = teamMember.league_rank();  // returns a number between 0 and N
-        auto thread_number = teamMember.league_size();
-        auto unitsOfWork   = N / thread_number;
-        if (N % thread_number) {
-          unitsOfWork += 1;
-        }
-        auto numberOfBatches = N / unitsOfWork;
+        auto [unitsOfWork, numberOfBatches] =
+            compute_thread_work_share(N, teamMember);
         Kokkos::parallel_for(
             Kokkos::TeamThreadRange(teamMember, numberOfBatches),
             [=](const int indexWithinBatch) {
@@ -603,12 +592,8 @@ void impl_test_local_deepcopy_teampolicy_rank_7(const int N) {
       team_policy(N, Kokkos::AUTO),
       KOKKOS_LAMBDA(const member_type& teamMember) {
         int lid = teamMember.league_rank();  // returns a number between 0 and N
-        auto thread_number = teamMember.league_size();
-        auto unitsOfWork   = N / thread_number;
-        if (N % thread_number) {
-          unitsOfWork += 1;
-        }
-        auto numberOfBatches = N / unitsOfWork;
+        auto [unitsOfWork, numberOfBatches] =
+            compute_thread_work_share(N, teamMember);
         Kokkos::parallel_for(
             Kokkos::TeamThreadRange(teamMember, numberOfBatches),
             [=](const int indexWithinBatch) {
