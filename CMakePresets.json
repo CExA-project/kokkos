@@ -1,0 +1,54 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 21,
+    "patch": 1
+  },
+  "configurePresets": [
+    {
+      "name": "dev-preset",
+      "description": "Development preset",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "YES",
+        "Kokkos_ENABLE_DEPRECATED_CODE_4": "ON",
+        "Kokkos_ENABLE_DEPRECATION_WARNINGS":"OFF",
+        "Kokkos_ENABLE_COMPILER_WARNINGS": "ON",
+        "Kokkos_ENABLE_IMPL_MDSPAN":"ON",
+        "CMAKE_COMPILE_WARNING_AS_ERROR":"ON"
+      }
+    },
+    {
+      "name": "openmp",
+      "description": "enable openmp",
+      "hidden": true,
+      "cacheVariables": {
+        "Kokkos_ENABLE_OPENMP": "ON"
+      }
+    },
+    {
+      "name": "cuda",
+      "description": "enable cuda",
+      "hidden": true,
+      "cacheVariables": {
+        "Kokkos_ENABLE_CUDA": "ON"
+      }
+    },
+    {
+      "name": "full",
+      "hidden": true,
+      "cacheVariables": {
+        "Kokkos_ENABLE_TESTS": "ON",
+        "Kokkos_ENABLE_EXAMPLES": "ON"
+      }
+    },
+    {
+      "name": "dev-openmp",
+      "hidden": false,
+      "description": "Development preset OpenMP",
+      "inherits": ["dev-preset", "openmp", "full"]
+    }
+  ]
+}
