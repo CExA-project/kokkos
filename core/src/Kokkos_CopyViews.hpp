@@ -3434,10 +3434,15 @@ struct MirrorViewType {
         std::is_same<data_type, typename src_view_type::data_type>::value
   };
 
+  // Shorthand for both memory space and data type check
+  enum {
+    is_same = is_same_memspace && is_same_data_type
+  };
+
   // If it is the same memory_space and data_type return the existsing view_type
   // This will also keep the unmanaged trait if necessary
   using view_type =
-      std::conditional_t<is_same_memspace && is_same_data_type, src_view_type, dest_view_type>;
+      std::conditional_t<is_same, src_view_type, dest_view_type>;
 };
 
 template <class Space, class T, class... P>
