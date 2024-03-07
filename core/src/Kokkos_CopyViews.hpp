@@ -3414,11 +3414,6 @@ struct MirrorViewType {
   using src_view_type = typename Kokkos::View<T, P...>;
   // The memory space for the mirror view
   using memory_space = typename Space::memory_space;
-  // Check whether it is the same memory space
-  enum {
-    is_same_memspace =
-        std::is_same<memory_space, typename src_view_type::memory_space>::value
-  };
   // The array_layout
   using array_layout = typename src_view_type::array_layout;
   // The data type (we probably want it non-const since otherwise we can't even
@@ -3426,10 +3421,23 @@ struct MirrorViewType {
   using data_type = typename src_view_type::non_const_data_type;
   // The destination view type if it is not the same memory space
   using dest_view_type = Kokkos::View<data_type, array_layout, Space>;
-  // If it is the same memory_space return the existsing view_type
+
+  // Check whether it is the same memory space
+  enum {
+    is_same_memspace =
+        std::is_same<memory_space, typename src_view_type::memory_space>::value
+  };
+
+  // Check whether it is the same data type
+  enum {
+    is_same_data_type =
+        std::is_same<data_type, typename src_view_type::data_type>::value
+  };
+
+  // If it is the same memory_space and data_type return the existsing view_type
   // This will also keep the unmanaged trait if necessary
   using view_type =
-      std::conditional_t<is_same_memspace, src_view_type, dest_view_type>;
+      std::conditional_t<is_same_memspace && is_same_data_type, src_view_type, dest_view_type>;
 };
 
 template <class Space, class T, class... P>
