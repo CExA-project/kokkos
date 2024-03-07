@@ -3409,6 +3409,24 @@ namespace Impl {
 
 // Deduce Mirror Types
 template <class Space, class T, class... P>
+struct MirrorViewType;
+
+// Dummy mirror view type that contains nothing
+template <class T, class... P>
+struct MirrorViewType<void, T, P...> {
+  using src_view_type = void;
+  using memory_space = void;
+  using array_layout = void;
+  using data_type = void;
+  using dest_view_type = void;
+  using view_type = void;
+  static constexpr bool is_same_namespace = false;
+  static constexpr bool is_same_data_type = false;
+  static constexpr bool is_same = false;
+};
+
+// Deduce Mirror Types
+template <class Space, class T, class... P>
 struct MirrorViewType {
   // The incoming view_type
   using src_view_type = typename Kokkos::View<T, P...>;
