@@ -3601,16 +3601,16 @@ void check_view_ctor_args_create_mirror_and_copy() {
   using alloc_prop_input = Impl::ViewCtorProp<ViewCtorArgs...>;
 
   static_assert(
-      !alloc_prop_input::has_label,
-      "The view constructor arguments passed to Kokkos::create_mirror[_view] "
-      "must not include a label!");
+      alloc_prop_input::has_memory_space,
+      "The view constructor arguments passed to "
+      "Kokkos::create_mirror_view_and_copy must include a memory space!");
   static_assert(!alloc_prop_input::has_pointer,
                 "The view constructor arguments passed to "
-                "Kokkos::create_mirror[_view] must "
+                "Kokkos::create_mirror_view_and_copy must "
                 "not include a pointer!");
   static_assert(!alloc_prop_input::allow_padding,
                 "The view constructor arguments passed to "
-                "Kokkos::create_mirror[_view] must "
+                "Kokkos::create_mirror_view_and_copy must "
                 "not explicitly allow padding!");
 }
 
@@ -3621,7 +3621,7 @@ auto create_mirror_view_and_copy(
     const Kokkos::View<T, P...>& src) {
 
     using alloc_prop_input = Impl::ViewCtorProp<ViewCtorArgs...>;
-    check_view_ctor_args_create_mirror_and_copy();
+    check_view_ctor_args_create_mirror_and_copy<ViewCtorArgs...>();
 
     // get desired space
     using space_type = std::conditional_t<alloc_prop_input::has_memory_space,
@@ -3629,7 +3629,6 @@ auto create_mirror_view_and_copy(
       DefaultHostExecutionSpace>;
 
     using mirror_view_type = typename Impl::MirrorViewType<space_type, T, P...>;
-    using nonconst_mirror = typename mirror_view_type::view_type::non_const_type;
 
     if constexpr(mirror_view_type::is_same){
         // same behavior as deep_copy(src, src)
@@ -3637,6 +3636,8 @@ auto create_mirror_view_and_copy(
             "Kokkos::create_mirror_view_and_copy: fence before returning src view");
         return src;
     } else {
+
+        using nonconst_mirror = typename mirror_view_type::dest_view_type;
         auto arg_prop_copy = Impl::with_properties_if_unset(
         arg_prop, std::string{}, WithoutInitializing,
         typename space_type::execution_space{});
@@ -3644,8 +3645,8 @@ auto create_mirror_view_and_copy(
         std::string& label = Impl::get_property<Impl::LabelTag>(arg_prop_copy);
         if (label.empty()) label = src.label();
 
-        auto mirror = nonconst_mirror{arg_prop_copy, src.layout()};;
-        deep_copy(mirror, src);
+        auto mirror = nonconst_mirror{arg_prop_copy, src.layout()};
+        deep_copy(Impl::get_property<Impl::ExecutionSpaceTag>(arg_prop_copy), mirror, src);
         return mirror; 
     }
   }
