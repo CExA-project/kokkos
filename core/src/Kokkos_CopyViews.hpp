@@ -3489,7 +3489,7 @@ inline auto create_mirror(const Kokkos::View<T, P...>& src,
   // get desired space
   using space_type = std::conditional_t<Impl::ViewCtorProp<ViewCtorArgs...>::has_memory_space,
     typename Impl::ViewCtorProp<ViewCtorArgs...>::memory_space,
-    DefaultHostExecutionSpace>;
+    DefaultHostExecutionSpace::memory_space>;
 
   using mirror_view_type = typename Impl::MirrorViewType<space_type, T, P...>;
 
@@ -3545,7 +3545,7 @@ inline auto create_mirror_view(const Kokkos::View<T, P...>& src,
   // get desired space
   using space_type = std::conditional_t<Impl::ViewCtorProp<ViewCtorArgs...>::has_memory_space,
     typename Impl::ViewCtorProp<ViewCtorArgs...>::memory_space,
-    DefaultHostExecutionSpace>;
+    DefaultHostExecutionSpace::memory_space>;
 
   using mirror_view_type = typename Impl::MirrorViewType<space_type, T, P...>;
 
@@ -3626,7 +3626,7 @@ auto create_mirror_view_and_copy(
     // get desired space
     using space_type = std::conditional_t<alloc_prop_input::has_memory_space,
       typename alloc_prop_input::memory_space,
-      DefaultHostExecutionSpace>;
+      DefaultHostExecutionSpace::memory_space>;
 
     using mirror_view_type = typename Impl::MirrorViewType<space_type, T, P...>;
 
@@ -3638,7 +3638,6 @@ auto create_mirror_view_and_copy(
 
         return src;
     } else {
-
         using nonconst_mirror = typename mirror_view_type::dest_view_type;
         auto arg_prop_copy = Impl::with_properties_if_unset(
         arg_prop, std::string{}, WithoutInitializing,
