@@ -3632,8 +3632,10 @@ auto create_mirror_view_and_copy(
 
     if constexpr(mirror_view_type::is_same){
         // same behavior as deep_copy(src, src)
-        fence(
-            "Kokkos::create_mirror_view_and_copy: fence before returning src view");
+        if constexpr (!alloc_prop_input::has_execution_space)
+            fence(
+                "Kokkos::create_mirror_view_and_copy: fence before returning src view");
+
         return src;
     } else {
 
