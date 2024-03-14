@@ -3430,15 +3430,29 @@ template <class Space, class T, class... P>
 struct MirrorViewType {
   // The incoming view_type
   using src_view_type = typename Kokkos::View<T, P...>;
+
   // The memory space for the mirror view
   using memory_space = typename Space::memory_space;
+
+  // The execution space for the mirror view
+  using execution_space = typename Space::execution_space;
+
   // The array_layout
   using array_layout = typename src_view_type::array_layout;
+
   // The data type (we probably want it non-const since otherwise we can't even
-  // deep_copy to it.
+  // deep_copy to it)
   using data_type = typename src_view_type::non_const_data_type;
+
+  // The hooks policy
+  using hooks_policy = typename src_view_type::traits::hooks_policy;
+
   // The destination view type if it is not the same memory space
-  using dest_view_type = Kokkos::View<data_type, array_layout, Space>;
+  // If the memory space is the host space, use View::HostMirror
+  using dest_view_type = std::conditional_t<
+      std::is_same_v<execution_space, DefaultHostExecutionSpace>,
+      typename Kokkos::View<data_type, P...>::HostMirror,
+      typename Kokkos::View<data_type, array_layout, Device<execution_space, memory_space>, hooks_policy>>;
 
 
   // Check whether it is the same memory space
