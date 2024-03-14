@@ -3448,9 +3448,9 @@ struct MirrorViewType {
   using hooks_policy = typename src_view_type::traits::hooks_policy;
 
   // The destination view type if it is not the same memory space
-  // If the memory space is the host space, use View::HostMirror
+  // If the memory space is the host memory space, use View::HostMirror
   using dest_view_type = std::conditional_t<
-      std::is_same_v<execution_space, DefaultHostExecutionSpace>,
+      std::is_same_v<memory_space, DefaultHostExecutionSpace::memory_space>,
       typename Kokkos::View<data_type, P...>::HostMirror,
       typename Kokkos::View<data_type, array_layout, Device<execution_space, memory_space>, hooks_policy>>;
 
