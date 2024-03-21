@@ -3557,7 +3557,7 @@ auto create_mirror_view(const Kokkos::View<T, P...>& src,
 
 template <class T, class... P>
 auto create_mirror_view(const Kokkos::View<T, P...>& src) {
-  return src;
+  return Kokkos::Impl::create_mirror_view(src, view_alloc());
 }
 
 // without_initializing
