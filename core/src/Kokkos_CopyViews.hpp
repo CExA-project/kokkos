@@ -3450,7 +3450,8 @@ void check_view_ctor_args_create_mirror() {
                 "not explicitly allow padding!");
 }
 
-template <class T, class... P, class... ViewCtorArgs, class = std::enable_if_t<std::is_void<typename ViewTraits<T, P...>::specialize>::value>>
+template <class T, class... P, class... ViewCtorArgs,
+         class = std::enable_if<std::is_void<typename ViewTraits<T, P...>::specialize>::value>>
 auto create_mirror(const Kokkos::View<T, P...>& src,
                    const Impl::ViewCtorProp<ViewCtorArgs...>& arg_prop) {
   check_view_ctor_args_create_mirror<ViewCtorArgs...>();
@@ -3507,7 +3508,8 @@ auto create_mirror(Kokkos::Impl::WithoutInitializing_t wi, Space const&,
 
 namespace Impl {
 
-template <class T, class... P, class... ViewCtorArgs>
+template <class T, class... P, class... ViewCtorArgs,
+         class = std::enable_if<std::is_void<typename ViewTraits<T, P...>::specialize>::value>>
 auto create_mirror_view(const Kokkos::View<T, P...>& src,
                         const Impl::ViewCtorProp<ViewCtorArgs...>& arg_prop) {
   if constexpr (!Impl::ViewCtorProp<ViewCtorArgs...>::has_memory_space) {
