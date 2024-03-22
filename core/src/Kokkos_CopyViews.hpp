@@ -3614,13 +3614,11 @@ void check_view_ctor_args_create_mirror_view_and_copy() {
                 "not explicitly allow padding!");
 }
 
-} // namespace Impl
-
-template <class... ViewCtorArgs, class T, class... P,
+template <class T, class... P, class... ViewCtorArgs,
          class = std::enable_if<std::is_void<typename ViewTraits<T, P...>::specialize>::value>>
 auto create_mirror_view_and_copy(
-    const Impl::ViewCtorProp<ViewCtorArgs...>& arg_prop,
-    const Kokkos::View<T, P...>& src) {
+    const Kokkos::View<T, P...>& src,
+    const Impl::ViewCtorProp<ViewCtorArgs...>& arg_prop) {
   using alloc_prop_input = Impl::ViewCtorProp<ViewCtorArgs...>;
 
   Impl::check_view_ctor_args_create_mirror_view_and_copy<ViewCtorArgs...>();
@@ -3651,20 +3649,25 @@ auto create_mirror_view_and_copy(
   }
 }
 
-// Previously when using auto here, the intel compiler 19.3 would
-// sometimes not create a symbol, guessing that it somehow is a combination
-// of auto and just forwarding arguments (see issue #5196)
+} // namespace Impl
+
+// space and name
 template <class Space, class T, class... P,
-          typename Enable = std::enable_if_t<Kokkos::is_space<Space>::value>>
-typename Impl::MirrorViewType<Space, T, P...>::view_type
-create_mirror_view_and_copy(
+          class = std::enable_if_t<Kokkos::is_space<Space>::value>>
+auto create_mirror_view_and_copy(
     const Space&, const Kokkos::View<T, P...>& src,
-    std::string const& name = "",
-    std::enable_if_t<
-        std::is_void<typename ViewTraits<T, P...>::specialize>::value>* =
-        nullptr) {
-  return create_mirror_view_and_copy(
-      Kokkos::view_alloc(typename Space::memory_space{}, name), src);
+    std::string const& name = "") {
+  return Kokkos::Impl::create_mirror_view_and_copy(
+      src,
+      Kokkos::view_alloc(typename Space::memory_space{}, name));
+}
+
+// view_constructor_args
+template <class T, class... P, class... ViewCtorArgs>
+auto create_mirror_view_and_copy(
+    const Impl::ViewCtorProp<ViewCtorArgs...>& arg_prop,
+    const Kokkos::View<T, P...>& src) {
+  return Kokkos::Impl::create_mirror_view_and_copy(src, arg_prop);
 }
 
 } /* namespace Kokkos */
