@@ -3432,26 +3432,6 @@ struct MirrorViewType {
       std::conditional_t<is_same_memspace, src_view_type, dest_view_type>;
 };
 
-template <class Space, class T, class... P>
-struct MirrorType {
-  // The incoming view_type
-  using src_view_type = typename Kokkos::View<T, P...>;
-  // The memory space for the mirror view
-  using memory_space = typename Space::memory_space;
-  // Check whether it is the same memory space
-  enum {
-    is_same_memspace =
-        std::is_same<memory_space, typename src_view_type::memory_space>::value
-  };
-  // The array_layout
-  using array_layout = typename src_view_type::array_layout;
-  // The data type (we probably want it non-const since otherwise we can't even
-  // deep_copy to it.
-  using data_type = typename src_view_type::non_const_data_type;
-  // The destination view type if it is not the same memory space
-  using view_type = Kokkos::View<data_type, array_layout, memory_space>;
-};
-
 template <class... ViewCtorArgs>
 void check_view_ctor_args_create_mirror() {
   using alloc_prop_input = Impl::ViewCtorProp<ViewCtorArgs...>;
@@ -3481,7 +3461,7 @@ auto create_mirror(const Kokkos::View<T, P...>& src,
   if constexpr (Impl::ViewCtorProp<ViewCtorArgs...>::has_memory_space) {
     using memory_space = typename decltype(prop_copy)::memory_space;
     using dst_type =
-        typename Impl::MirrorType<memory_space, T, P...>::view_type;
+        typename Impl::MirrorViewType<memory_space, T, P...>::dest_view_type;
     return dst_type(prop_copy, src.layout());
   } else {
     using dst_type = typename View<T, P...>::HostMirror;
