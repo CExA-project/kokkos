@@ -3546,7 +3546,7 @@ auto create_mirror_view(const Kokkos::View<T, P...>& src,
       check_view_ctor_args_create_mirror<ViewCtorArgs...>();
       return src;
     } else {
-      return Impl::create_mirror(src, arg_prop);
+      return Kokkos::Impl::create_mirror(src, arg_prop);
     }
   } else {
     if constexpr (Impl::MirrorViewType<typename Impl::ViewCtorProp<
@@ -3555,7 +3555,7 @@ auto create_mirror_view(const Kokkos::View<T, P...>& src,
       check_view_ctor_args_create_mirror<ViewCtorArgs...>();
       return src;
     } else {
-      return Impl::create_mirror(src, arg_prop);
+      return Kokkos::Impl::create_mirror(src, arg_prop);
     }
   }
 }
