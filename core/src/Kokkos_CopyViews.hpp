@@ -3471,15 +3471,11 @@ void check_view_ctor_args_create_mirror() {
                 "not explicitly allow padding!");
 }
 
-<<<<<<< Updated upstream
-// private interface that accepts arbitrary view constructor args passed by a view_alloc
+// private interface that accepts arbitrary view constructor args passed by a
+// view_alloc
 template <class T, class... P, class... ViewCtorArgs,
-         class = std::enable_if<std::is_void<typename ViewTraits<T, P...>::specialize>::value>>
-=======
-template <class T, class... P, class... ViewCtorArgs,
-          class = std::enable_if_t<
+          class = std::enable_if<
               std::is_void<typename ViewTraits<T, P...>::specialize>::value>>
->>>>>>> Stashed changes
 auto create_mirror(const Kokkos::View<T, P...>& src,
                    const Impl::ViewCtorProp<ViewCtorArgs...>& arg_prop) {
   check_view_ctor_args_create_mirror<ViewCtorArgs...>();
@@ -3519,7 +3515,8 @@ auto create_mirror(Space const&, Kokkos::View<T, P...> const& src) {
   return Impl::create_mirror(src, view_alloc(typename Space::memory_space{}));
 }
 
-// public interface that accepts arbitrary view constructor args passed by a view_alloc
+// public interface that accepts arbitrary view constructor args passed by a
+// view_alloc
 template <class T, class... P, class... ViewCtorArgs>
 auto create_mirror(Impl::ViewCtorProp<ViewCtorArgs...> const& arg_prop,
                    Kokkos::View<T, P...> const& src) {
@@ -3537,9 +3534,11 @@ auto create_mirror(Kokkos::Impl::WithoutInitializing_t wi, Space const&,
 
 namespace Impl {
 
-// private interface that accepts arbitrary view constructor args passed by a view_alloc
+// private interface that accepts arbitrary view constructor args passed by a
+// view_alloc
 template <class T, class... P, class... ViewCtorArgs,
-         class = std::enable_if<std::is_void<typename ViewTraits<T, P...>::specialize>::value>>
+          class = std::enable_if<
+              std::is_void<typename ViewTraits<T, P...>::specialize>::value>>
 auto create_mirror_view(const Kokkos::View<T, P...>& src,
                         const Impl::ViewCtorProp<ViewCtorArgs...>& arg_prop) {
   if constexpr (!Impl::ViewCtorProp<ViewCtorArgs...>::has_memory_space) {
@@ -3575,50 +3574,30 @@ auto create_mirror_view(const Kokkos::View<T, P...>& src) {
 
 // public interface that accepts a without initializing flag
 template <class T, class... P>
-<<<<<<< Updated upstream
-auto create_mirror_view(
-    Kokkos::Impl::WithoutInitializing_t wi, Kokkos::View<T, P...> const& src) {
-  return Impl::create_mirror_view(src, view_alloc(wi));
-=======
 auto create_mirror_view(Kokkos::Impl::WithoutInitializing_t wi,
                         Kokkos::View<T, P...> const& src) {
-  return Kokkos::Impl::create_mirror_view(src, view_alloc(wi));
->>>>>>> Stashed changes
+  return Impl::create_mirror_view(src, view_alloc(wi));
 }
 
 // public interface that accepts a space
 template <class Space, class T, class... P,
           class Enable = std::enable_if_t<Kokkos::is_space<Space>::value>>
-<<<<<<< Updated upstream
-auto create_mirror_view(
-    const Space& space, const Kokkos::View<T, P...>& src) {
-  return Impl::create_mirror_view(src, view_alloc(typename Space::memory_space()));
+auto create_mirror_view(const Space& space, const Kokkos::View<T, P...>& src) {
+  return Impl::create_mirror_view(src,
+                                  view_alloc(typename Space::memory_space()));
 }
 
 // public interface that accepts a space and a without initializing flag
 template <class Space, class T, class... P,
           typename Enable = std::enable_if_t<Kokkos::is_space<Space>::value>>
-auto create_mirror_view(
-    Kokkos::Impl::WithoutInitializing_t wi, Space const&,
-    Kokkos::View<T, P...> const& src) {
-  return Impl::create_mirror_view(
-=======
-auto create_mirror_view(const Space& space, const Kokkos::View<T, P...>& src) {
-  return Kokkos::Impl::create_mirror_view(
-      src, view_alloc(typename Space::memory_space()));
-}
-
-// space & without_initializing
-template <class Space, class T, class... P,
-          typename Enable = std::enable_if_t<Kokkos::is_space<Space>::value>>
 auto create_mirror_view(Kokkos::Impl::WithoutInitializing_t wi, Space const&,
                         Kokkos::View<T, P...> const& src) {
-  return Kokkos::Impl::create_mirror_view(
->>>>>>> Stashed changes
+  return Impl::create_mirror_view(
       src, view_alloc(typename Space::memory_space{}, wi));
 }
 
-// public interface that accepts arbitrary view constructor args passed by a view_alloc
+// public interface that accepts arbitrary view constructor args passed by a
+// view_alloc
 template <class T, class... P, class... ViewCtorArgs>
 auto create_mirror_view(const Impl::ViewCtorProp<ViewCtorArgs...>& arg_prop,
                         const Kokkos::View<T, P...>& src) {
@@ -3648,7 +3627,8 @@ void check_view_ctor_args_create_mirror_view_and_copy() {
 
 }  // namespace Impl
 
-// public interface that accepts arbitrary view constructor args passed by a view_alloc
+// public interface that accepts arbitrary view constructor args passed by a
+// view_alloc
 template <class... ViewCtorArgs, class T, class... P,
           class = std::enable_if<
               std::is_void<typename ViewTraits<T, P...>::specialize>::value>>
