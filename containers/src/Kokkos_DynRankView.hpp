@@ -1934,6 +1934,7 @@ struct MirrorDRVType {
 
 namespace Impl {
 
+// collection of static asserts for create_mirror
 template <class... ViewCtorArgs>
 void check_view_ctor_args_create_mirror_drv() {
   using alloc_prop_input = Impl::ViewCtorProp<ViewCtorArgs...>;
@@ -1952,8 +1953,11 @@ void check_view_ctor_args_create_mirror_drv() {
       "not explicitly allow padding!");
 }
 
+// create a mirror
+// private interface that accepts arbitrary view constructor args passed by a
+// view_alloc
 template <class T, class... P, class... ViewCtorArgs>
-auto create_mirror(
+inline auto create_mirror(
     const DynRankView<T, P...>& src,
     const Impl::ViewCtorProp<ViewCtorArgs...>& arg_prop) {
 
@@ -2041,8 +2045,11 @@ inline auto create_mirror(
 
 namespace Impl {
 
+// create a mirror view
+// private interface that accepts arbitrary view constructor args passed by a
+// view_alloc
 template <class T, class... P, class... ViewCtorArgs>
-auto create_mirror_view(const DynRankView<T, P...>& src,
+inline auto create_mirror_view(const DynRankView<T, P...>& src,
                         const typename Impl::ViewCtorProp<ViewCtorArgs...>& arg_prop) {
   if constexpr (!Impl::ViewCtorProp<ViewCtorArgs...>::has_memory_space) {
     if constexpr (
@@ -2144,6 +2151,7 @@ inline auto create_mirror_view(
 
 namespace Impl {
 
+// collection of static asserts for create_mirror_view_and_copy
 template <class... ViewCtorArgs>
 void check_view_ctor_args_create_mirror_view_and_copy_drv() {
   using alloc_prop_input = Impl::ViewCtorProp<ViewCtorArgs...>;
@@ -2164,6 +2172,9 @@ void check_view_ctor_args_create_mirror_view_and_copy_drv() {
 
 } // namespace Impl
 
+// create a mirror view and deep copy it
+// public interface that accepts arbitrary view constructor args passed by a
+// view_alloc
 template <class... ViewCtorArgs, class T, class... P,
           class = std::enable_if<
               std::is_void<typename ViewTraits<T, P...>::specialize>::value>>
