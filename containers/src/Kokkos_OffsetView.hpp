@@ -1842,6 +1842,7 @@ struct MirrorOffsetType {
 
 namespace Impl {
 
+// collection of static asserts for create_mirror
 template <class... ViewCtorArgs>
 void check_view_ctor_args_create_mirror_offset() {
   using alloc_prop_input = Impl::ViewCtorProp<ViewCtorArgs...>;
@@ -1860,8 +1861,11 @@ void check_view_ctor_args_create_mirror_offset() {
       "not explicitly allow padding!");
 }
 
+// create a mirror
+// private interface that accepts arbitrary view constructor args passed by a
+// view_alloc
 template <class T, class... P, class... ViewCtorArgs>
-auto create_mirror(const Kokkos::Experimental::OffsetView<T, P...>& src,
+inline auto create_mirror(const Kokkos::Experimental::OffsetView<T, P...>& src,
                    const Impl::ViewCtorProp<ViewCtorArgs...>& arg_prop) {
   check_view_ctor_args_create_mirror_offset<ViewCtorArgs...>();
 
@@ -1906,7 +1910,8 @@ inline auto create_mirror(
       src, Kokkos::view_alloc(typename Space::memory_space{}));
 }
 
-template <class Space, class T, class... P>
+template <class Space, class T, class... P,
+          typename Enable = std::enable_if_t<Kokkos::is_space<Space>::value>>
 typename Kokkos::Impl::MirrorOffsetType<Space, T, P...>::view_type
 create_mirror(Kokkos::Impl::WithoutInitializing_t wi, const Space&,
               const Kokkos::Experimental::OffsetView<T, P...>& src) {
@@ -1923,8 +1928,11 @@ inline auto create_mirror(
 
 namespace Impl {
 
+// create a mirror view
+// private interface that accepts arbitrary view constructor args passed by a
+// view_alloc
 template <class T, class... P, class... ViewCtorArgs>
-auto create_mirror_view(const Kokkos::Experimental::OffsetView<T, P...>& src,
+inline auto create_mirror_view(const Kokkos::Experimental::OffsetView<T, P...>& src,
                         const Impl::ViewCtorProp<ViewCtorArgs...>& arg_prop) {
   if constexpr (!Impl::ViewCtorProp<ViewCtorArgs...>::has_memory_space) {
     if constexpr (
@@ -1976,7 +1984,8 @@ inline auto create_mirror_view(
       src, Kokkos::view_alloc(typename Space::memory_space{}));
 }
 
-template <class Space, class T, class... P>
+template <class Space, class T, class... P,
+          typename Enable = std::enable_if_t<Kokkos::is_space<Space>::value>>
 inline auto create_mirror_view(
     Kokkos::Impl::WithoutInitializing_t wi, const Space&,
     const Kokkos::Experimental::OffsetView<T, P...>& src) {
