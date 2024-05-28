@@ -18,6 +18,11 @@
 
 namespace {
 
+// nvcc errors on variables only used in static_asserts
+// Passing those variables to this function should eliminate the warning
+template <typename... Ts>
+KOKKOS_FUNCTION constexpr void maybe_unused(Ts&&...) {}
+
 KOKKOS_FUNCTION constexpr bool test_array() {
   constexpr Kokkos::Array<int, 3> a{{1, 2}};
 
@@ -119,5 +124,70 @@ static_assert(test_array_aggregate_initialization());
     a[i] = T();
   }
 }
+
+constexpr bool test_array_const_qualified_element_type() {
+  Kokkos::Array<int const, 1> a{255};
+  return a[0] == 255;
+}
+
+static_assert(test_array_const_qualified_element_type());
+
+// User-defined type providing a sepcialization of kokkos_swap
+struct MyInt {
+  int i;
+
+ private:
+  friend constexpr void kokkos_swap(MyInt& lhs, MyInt& rhs) noexcept {
+    lhs.i = 255;
+    rhs.i = 127;
+  }
+};
+
+constexpr bool test_array_specialization_kokkos_swap() {
+  Kokkos::Array<MyInt, 2> a{MyInt{1}, MyInt{2}};
+  Kokkos::Array<MyInt, 2> b{MyInt{11}, MyInt{22}};
+
+  // sanity check
+  if (a[0].i != 1 || a[1].i != 2 || b[0].i != 11 || b[1].i != 22) {
+    return false;
+  }
+
+  using Kokkos::kokkos_swap;
+  kokkos_swap(a, b);
+
+  // check that the user-definied kokkos_swap(MyInt) overload was called
+  if (a[0].i != 255 || a[1].i != 255 || b[0].i != 127 || b[1].i != 127) {
+    return false;
+  }
+
+  return true;
+}
+
+static_assert(test_array_specialization_kokkos_swap());
+
+constexpr bool test_to_array() {
+  // copies a string literal
+  [[maybe_unused]] auto a1 = Kokkos::to_array("foo");
+  static_assert(a1.size() == 4);
+  maybe_unused(a1);
+
+  // deduces both element type and length
+  [[maybe_unused]] auto a2 = Kokkos::to_array({0, 2, 1, 3});
+  static_assert(std::is_same_v<decltype(a2), Kokkos::Array<int, 4>>);
+  maybe_unused(a2);
+
+// gcc8 doesn't support the implicit conversion
+#if !defined(KOKKOS_COMPILER_GNU) || (KOKKOS_COMPILER_GNU >= 910)
+  // deduces length with element type specified
+  // implicit conversion happens
+  [[maybe_unused]] auto a3 = Kokkos::to_array<long>({0, 1, 3});
+  static_assert(std::is_same_v<decltype(a3), Kokkos::Array<long, 3>>);
+  maybe_unused(a3);
+#endif
+
+  return true;
+}
+
+static_assert(test_to_array());
 
 }  // namespace
