@@ -1,0 +1,50 @@
+name: Weekly CEA CI
+
+on:
+  # schedule:
+  #   - cron: "0 2 * * 6" # every Saturday at 2am UTC
+  workflow_dispatch:
+
+jobs:
+  build_and_test:
+    strategy:
+      matrix:
+        build_type:
+          - Release
+          # - Debug
+        backend:
+          - name: cuda-a100
+            flags: -DKokkos_ENABLE_CUDA=ON -DKokkos_ARCH_AMPERE80=ON
+            queue: gpua100
+            runner: [self-hosted, cuda]
+          # - name: cuda-v100
+          #   flags: -DKokkos_ENABLE_CUDA=ON -DKokkos_ARCH_VOLTA70=ON
+          #   queue: gpu
+          #   runner: [self-hosted, cuda]
+
+    runs-on: ${{ matrix.backend.runner }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Hello world
+        run: echo "hello world"
+
+      # - name: Configure
+      #   run: |
+      #     cmake -B build \
+      #       -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+      #       -DCMAKE_CXX_STANDARD=17 \
+      #       -DKokkos_ENABLE_TESTS=ON \
+      #       -DKokkos_ENABLE_EXAMPLES=ON \
+      #       ${{ matrix.flags }}
+      #
+      # - name: Build
+      #   run: cmake --build build --parallel 20
+      #
+      # - name: Test
+      #   run: |
+      #     srun --nodes=1 --time=01:00:00 -p ${{ matrix.queue }} --gres=gpu:1 \
+      #     ctest --output-on-failure
+      #
